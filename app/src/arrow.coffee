@@ -8,12 +8,12 @@ class Arrow
 
   OFFSET = 500
 
-  V_SLOW = 4
+  #V_SLOW = 4
+  #V_MIDDLE = 5
+  #V_FAST = 7
+  V_SLOW = 5
   V_MIDDLE = 5
-  V_FAST = 7
-  #V_SLOW = 1
-  #V_MIDDLE = 1
-  #V_FAST = 1
+  V_FAST = 5
 
   CYCLE_COUNT = 800
 
@@ -40,19 +40,27 @@ class Arrow
   get_position: () ->
     return @position
 
+  get_direction: () ->
+    v = Math.abs(@v)
+    return @v/v
+
   get_half_heigh: () ->
     return HEIGHT/2
 
-  shoot: () ->
+  shoot: (pos) ->
     index = @world.attackable_index(this)
     if index != 0 and index == @protecting_section_index
       return
     @is_shooting = true
+    #pos += 13*@v
+    #@set_position(pos)
 
-  next_volocity: () ->
+  sync: (pos) ->
+    @set_position(pos)
+
+
+  next_velocity: () ->
     v = Math.abs(@v)
-    if v == 0
-      return @last_volocity
     sign = @v/v
     if v == V_MIDDLE
       return sign*V_FAST
@@ -75,6 +83,9 @@ class Arrow
       return @offset <= -d
 
   shoot_forward: () ->
+    pos = @get_position()
+    @world.syncPosition(pos)
+
     v = Math.abs(@v)
     if @side == SIDE_RIGHT
       v = -v
@@ -87,6 +98,9 @@ class Arrow
 
   stop: () ->
     @halt = true
+
+  start: () ->
+    @halt = false
 
   shoot_back: () ->
     v = Math.abs(@v)
@@ -109,10 +123,10 @@ class Arrow
     if @position <= -h
       @v = -@v
 
-  volocity_change: () ->
+  on_velocity_change: () ->
     @cycle += 1
     if @cycle == CYCLE_COUNT
-      @v = @next_volocity()
+      @v = @next_velocity()
       @cycle = 0
 
   run: () ->
@@ -122,7 +136,7 @@ class Arrow
       @shoot_forward()
     else
       @roaming()
-    @volocity_change()
+    @on_velocity_change()
 
 
   render: (canvas) ->

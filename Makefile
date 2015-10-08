@@ -9,11 +9,10 @@ SERVER+= app/src/arrow.coffee
 SERVER+= app/src/break.coffee
 SERVER+= app/src/wall.coffee
 SERVER+= app/src/background.coffee
-SERVER+= app/src/unit.coffee
 SERVER+= app/src/websocket.coffee
 SERVER+= app/src/world.coffee
-SERVER+= app/src/parser.coffee
 SERVER+= app/src/event_handler.coffee
+SERVER+= app/src/connector.coffee
 SERVER+= app/src/main.coffee
 
 

@@ -42,29 +42,15 @@ getCanvas = () ->
 
   return new Canvas(ctx, width, height)
 
-emit =(msg) ->
-  console.log msg
-
 main = () ->
   canvas = getCanvas()
   status_bar = new StatusBar
-  world = new World(canvas, status_bar)
-
-  #status_bar = new StatusBar
-  parser = new Parser(world, status_bar)
-  #console.log "h"
-  parser.parse "xxx"
+  connector = new Connector(status_bar)
+  world = new World(canvas, status_bar, connector)
 
   setInterval ->
     world.render()
     #, 2000*1000*1000
-
-
-  #ws = new Websocket(parser)
-  #ws.connect()
-  #world.ws = ws
-
-
 
 $ ->
   main()

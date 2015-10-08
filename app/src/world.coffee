@@ -5,11 +5,13 @@ class World
   ARROW_SIDE_LEFT = 0
   ARROW_SIDE_RIGHT = 1
 
-  constructor: (canvas, bar) ->
+  constructor: (canvas, bar, connector) ->
     @canvas = canvas
     @bar = bar
+    @connector = connector
+    @connector.set_world(this)
     @objects = []
-    @board = new BackGround(6)
+    @bg = new BackGround(6)
     @units = []
     @attack_points = []
     @ws = null
@@ -22,6 +24,8 @@ class World
     @hieght = 400
     @arrow1 = new Arrow(ARROW_SIDE_LEFT, this)
     @arrow2 = new Arrow(ARROW_SIDE_RIGHT, this)
+    @arrow1.stop()
+    @arrow2.stop()
     new EventHandler this
 
 
@@ -78,24 +82,7 @@ class World
   half_height: () ->
     return 400
 
-  init_units: (board_info) ->
-    @units = []
-    return
-    @movable = board_info.movable
-    @my_side = board_info.side
-    for unit in board_info.Units
-      @units.push new Unit(
-        @board,
-        unit.side,
-        unit.value,
-        {
-          x: unit.pos.x,
-          y: unit.pos.y
-        }
-      )
-
   hover: (pos) ->
-    console.log "h"
     return
 
   select: (pos) ->
@@ -112,14 +99,34 @@ class World
     false
 
   player1Press: () ->
-    @arrow1.shoot()
+    position = @arrow1.get_position()
+    @connector.shoot(position)
+
+  syncPosition: (pos) ->
+    @connector.sync(pos)
+
 
   player2Press: () ->
-    @arrow2.shoot()
+    return
+    #@connector.shoot()
+
+  player1Shoot: (pos) ->
+    @arrow1.shoot(pos)
+
+  player2Shoot: (pos) ->
+    @arrow2.shoot(pos)
+
+  player2Sync: (pos) ->
+    console.log("sync@@@@@@@@@@" + pos)
+    @arrow2.sync(pos)
+
+  start_game: () ->
+    @arrow1.start()
+    @arrow2.start()
 
   render: () ->
     @canvas.clear()
-    @board.render(@canvas)
+    @bg.render(@canvas)
     @break.render @canvas
     @break1.render @canvas
     @break2.render @canvas

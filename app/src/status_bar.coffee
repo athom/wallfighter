@@ -7,7 +7,7 @@ class StatusBar
     $("#status-bar").removeClass("alert-warning")
     $("#status-bar").removeClass("alert-danger")
 
-  render: (text, klass) ->
+  show_tip: (text, klass) ->
     @clear_class()
     $("#status-bar").addClass("alert-" + klass)
     $("#status-bar").html(text)
