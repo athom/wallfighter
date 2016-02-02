@@ -41,6 +41,8 @@ class Break
     if @danger == DANGER_RIGHT_3
       return 3 * delta
 
+  reset: () ->
+    @danger = DANGER_MIDDLE
 
   move: (side) ->
     if side == PUSH_FROM_LEFT

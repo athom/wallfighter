@@ -1,5 +1,5 @@
 WIDTH = 1600.0
-HEIGHT =800.0
+HEIGHT = 1000.0
 OFFSET = 150
 getRatio = () ->
   width = WIDTH
@@ -45,8 +45,10 @@ getCanvas = () ->
 main = () ->
   canvas = getCanvas()
   status_bar = new StatusBar
-  connector = new Connector(status_bar)
-  world = new World(canvas, status_bar, connector)
+  world = new World(canvas, status_bar)
+  ws = new Websocket(world)
+  world.set_reactor(ws)
+  ws.connect()
 
   setInterval ->
     world.render()
