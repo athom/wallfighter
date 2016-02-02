@@ -12,7 +12,6 @@ SERVER+= app/src/background.coffee
 SERVER+= app/src/websocket.coffee
 SERVER+= app/src/world.coffee
 SERVER+= app/src/event_handler.coffee
-SERVER+= app/src/connector.coffee
 SERVER+= app/src/main.coffee
 
 

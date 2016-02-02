@@ -29,11 +29,10 @@
       this.side = side;
       this.world = world;
       this.position = 0;
+      this.position_x = 0;
       this.v = V_MIDDLE;
       this.cycle = 0;
       this.offset = 0;
-      this.is_shooting = false;
-      this.is_shooting_back = false;
       this.protecting_section_index = 0;
     }
 
@@ -46,12 +45,17 @@
       }
     };
 
-    Arrow.prototype.set_position = function(position) {
-      return this.position = position;
+    Arrow.prototype.set_position = function(x, y) {
+      var ratio, ratio_x;
+      ratio = this.world.half_height() / 1000.0;
+      this.origin_position = y;
+      this.position = y * ratio;
+      ratio_x = OFFSET / 2 / 1000.0;
+      return this.offset = x * ratio_x;
     };
 
     Arrow.prototype.get_position = function() {
-      return this.position;
+      return this.origin_position;
     };
 
     Arrow.prototype.get_direction = function() {
@@ -68,64 +72,7 @@
       var index;
       index = this.world.attackable_index(this);
       if (index !== 0 && index === this.protecting_section_index) {
-        return;
-      }
-      return this.is_shooting = true;
-    };
 
-    Arrow.prototype.sync = function(pos) {
-      return this.set_position(pos);
-    };
-
-    Arrow.prototype.next_velocity = function() {
-      var sign, v;
-      v = Math.abs(this.v);
-      sign = this.v / v;
-      if (v === V_MIDDLE) {
-        return sign * V_FAST;
-      }
-      if (v === V_FAST) {
-        return sign * V_SLOW;
-      }
-      if (v === V_SLOW) {
-        return sign * V_MIDDLE;
-      }
-    };
-
-    Arrow.prototype.is_hit = function() {
-      var d, index, offset;
-      offset = 0;
-      index = this.world.attackable_index(this);
-      if (index !== 0) {
-        offset = this.world.break_offset(index);
-      }
-      if (this.side === SIDE_RIGHT) {
-        offset = -offset;
-      }
-      d = offset + this.world.half_width() - 2 * WIDTH - 150;
-      if (this.side === SIDE_LEFT) {
-        return this.offset >= d;
-      }
-      if (this.side === SIDE_RIGHT) {
-        return this.offset <= -d;
-      }
-    };
-
-    Arrow.prototype.shoot_forward = function() {
-      var index, offset, pos, v;
-      pos = this.get_position();
-      this.world.syncPosition(pos);
-      v = Math.abs(this.v);
-      if (this.side === SIDE_RIGHT) {
-        v = -v;
-      }
-      this.offset += v;
-      if (this.is_hit()) {
-        this.is_shooting_back = true;
-        index = this.world.attackable_index(this);
-        if (index !== 0) {
-          return offset = this.world.move_break(index, this.side);
-        }
       }
     };
 
@@ -137,60 +84,8 @@
       return this.halt = false;
     };
 
-    Arrow.prototype.shoot_back = function() {
-      var v;
-      v = Math.abs(this.v);
-      if (this.side === SIDE_LEFT) {
-        v = -v;
-      }
-      this.offset += v;
-      if (this.offset <= 0 && this.side === SIDE_LEFT || this.offset >= 0 && this.side === SIDE_RIGHT) {
-        this.is_shooting_back = false;
-        this.is_shooting = false;
-        return this.protecting_section_index = this.world.attackable_index(this);
-      }
-    };
-
-    Arrow.prototype.roaming = function() {
-      var h;
-      if (this.halt) {
-        return;
-      }
-      if (this.world.attackable_index(this) === 0) {
-        this.protecting_section_index = 0;
-      }
-      this.position += this.v;
-      h = this.world.half_height();
-      if (this.position >= h) {
-        this.v = -this.v;
-      }
-      if (this.position <= -h) {
-        return this.v = -this.v;
-      }
-    };
-
-    Arrow.prototype.on_velocity_change = function() {
-      this.cycle += 1;
-      if (this.cycle === CYCLE_COUNT) {
-        this.v = this.next_velocity();
-        return this.cycle = 0;
-      }
-    };
-
-    Arrow.prototype.run = function() {
-      if (this.is_shooting_back) {
-        this.shoot_back();
-      } else if (this.is_shooting) {
-        this.shoot_forward();
-      } else {
-        this.roaming();
-      }
-      return this.on_velocity_change();
-    };
-
     Arrow.prototype.render = function(canvas) {
       var offset;
-      this.run();
       offset = this.get_offset();
       return canvas.fillRect(COLOR_ARROW, {
         x: offset - WIDTH / 2,
@@ -331,6 +226,10 @@
       if (this.danger === DANGER_RIGHT_3) {
         return 3 * delta;
       }
+    };
+
+    Break.prototype.reset = function() {
+      return this.danger = DANGER_MIDDLE;
     };
 
     Break.prototype.move = function(side) {
@@ -720,11 +619,13 @@
   };
 
   main = function() {
-    var canvas, connector, status_bar, world;
+    var canvas, status_bar, world, ws;
     canvas = getCanvas();
     status_bar = new StatusBar;
-    connector = new Connector(status_bar);
-    world = new World(canvas, status_bar, connector);
+    world = new World(canvas, status_bar);
+    ws = new Websocket(world);
+    world.set_reactor(ws);
+    ws.connect();
     return setInterval(function() {
       return world.render();
     });
@@ -778,10 +679,12 @@
 
     WS_HOST = "ws://localhost:3000";
 
-    function Websocket(parser) {
+    WS_HOST = "ws://115.159.44.225:3000";
+
+    function Websocket(event_hadler) {
       this.set_slug_and_url();
       this.ws_conn = null;
-      this.parser = parser;
+      this.event_hadler = event_hadler;
     }
 
     Websocket.prototype.random_slug = function() {
@@ -791,23 +694,24 @@
     Websocket.prototype.set_slug_and_url = function() {
       var array, currentUrl;
       currentUrl = window.location.href;
+      console.log(currentUrl);
       array = currentUrl.split("?room=");
       if (array.length < 2) {
         this.slug = this.random_slug();
-        currentUrl += "?room=" + this.slug;
+        return currentUrl += "?room=" + this.slug;
       } else {
-        this.slug = array[1];
+        return this.slug = array[1];
       }
-      return window.history.pushState({}, 0, currentUrl);
     };
 
     Websocket.prototype.connect = function() {
-      var self, _action, _parser, _reconnect;
+      var self, _action, _event_hadler, _reconnect;
       if (this.ws_conn !== null) {
+        console.log("connected");
         return;
       }
-      console.log("connected");
-      _parser = this.parser;
+      console.log("connecting");
+      _event_hadler = this.event_hadler;
       _reconnect = this.reconnect;
       self = this;
       _action = function() {
@@ -816,15 +720,16 @@
       };
       this.ws_conn = new WebSocket(WS_HOST + "/ws/" + this.slug);
       this.ws_conn.onopen = function(data) {
+        console.log("opened");
         return console.log(data);
       };
       this.ws_conn.onmessage = function(msg_event) {
         var data;
         data = msg_event.data;
-        return _parser.parse(data);
+        return _event_hadler.handle_event(data);
       };
       this.ws_conn.onclose = function(data) {
-        return alert("close");
+        return _event_hadler.handle_close_event();
       };
       return this.ws_conn.onerror = function(data) {
         return alert("error");
@@ -849,91 +754,59 @@
   })();
 
   World = (function() {
-    var ARROW_SIDE_LEFT, ARROW_SIDE_RIGHT, BREAK_HEIGH, BREAK_WIDTH;
+    var ARROW_SIDE_LEFT, ARROW_SIDE_RIGHT, BREAK_HEIGH, BREAK_MOVED, BREAK_WIDTH, DISCONNECTED, LOSE, OVER, READY, ROOM_ISFULL, RUNNING, SHOOT, WAITING, WIN, WOOD_LEFT_1, WOOD_LEFT_2, WOOD_MIDDLE, WOOD_RIGHT_1, WOOD_RIGHT_2;
+
+    WAITING = 0;
+
+    READY = 1;
+
+    RUNNING = 2;
+
+    OVER = 3;
+
+    DISCONNECTED = 4;
+
+    ROOM_ISFULL = 5;
+
+    SHOOT = 6;
+
+    BREAK_MOVED = 7;
+
+    LOSE = 8;
+
+    WIN = 9;
 
     BREAK_WIDTH = 150;
 
     BREAK_HEIGH = 100;
 
+    WOOD_MIDDLE = 0;
+
+    WOOD_LEFT_1 = 1;
+
+    WOOD_LEFT_2 = 2;
+
+    WOOD_RIGHT_1 = 3;
+
+    WOOD_RIGHT_2 = 4;
+
     ARROW_SIDE_LEFT = 0;
 
     ARROW_SIDE_RIGHT = 1;
 
-    function World(canvas, bar, connector) {
+    function World(canvas, bar) {
       this.canvas = canvas;
       this.bar = bar;
-      this.connector = connector;
-      this.connector.set_world(this);
-      this.objects = [];
       this.bg = new BackGround(6);
-      this.units = [];
-      this.attack_points = [];
-      this.ws = null;
-      this["break"] = new Break(BREAK_HEIGH, this, BREAK_WIDTH, 0);
-      this.break1 = new Break(BREAK_HEIGH, this, BREAK_WIDTH, 200);
-      this.break2 = new Break(BREAK_HEIGH, this, BREAK_WIDTH, -200);
-      this.width = 800;
-      this.hieght = 400;
+      this.break2 = new Break(BREAK_HEIGH, this, BREAK_WIDTH, 0);
+      this.break3 = new Break(BREAK_HEIGH, this, BREAK_WIDTH, 200);
+      this.break1 = new Break(BREAK_HEIGH, this, BREAK_WIDTH, -200);
       this.arrow1 = new Arrow(ARROW_SIDE_LEFT, this);
       this.arrow2 = new Arrow(ARROW_SIDE_RIGHT, this);
       this.arrow1.stop();
       this.arrow2.stop();
       new EventHandler(this);
     }
-
-    World.prototype.attackable = function(position) {
-      if (position > 200 - BREAK_HEIGH / 2 && position < 200 + BREAK_HEIGH / 2) {
-        return true;
-      }
-      if (position > -200 - BREAK_HEIGH / 2 && position < -200 + BREAK_HEIGH / 2) {
-        return true;
-      }
-      if (position > 0 - BREAK_HEIGH / 2 && position < 0 + BREAK_HEIGH / 2) {
-        return true;
-      }
-      return false;
-    };
-
-    World.prototype.attackable_index = function(arrow) {
-      var position, w;
-      position = arrow.get_position();
-      w = arrow.get_half_heigh();
-      w = 0;
-      if (position > -200 - BREAK_HEIGH / 2 + w && position < -200 + BREAK_HEIGH / 2 - w) {
-        return 1;
-      }
-      if (position > 0 - BREAK_HEIGH / 2 + w && position < 0 + BREAK_HEIGH / 2 - w) {
-        return 2;
-      }
-      if (position > 200 - BREAK_HEIGH / 2 + w && position < 200 + BREAK_HEIGH / 2 - w) {
-        return 3;
-      }
-      return 0;
-    };
-
-    World.prototype.break_offset = function(index) {
-      if (index === 1) {
-        return this.break2.get_offset();
-      }
-      if (index === 2) {
-        return this["break"].get_offset();
-      }
-      if (index === 3) {
-        return this.break1.get_offset();
-      }
-    };
-
-    World.prototype.move_break = function(index, side) {
-      if (index === 1) {
-        return this.break2.move(side);
-      }
-      if (index === 2) {
-        return this["break"].move(side);
-      }
-      if (index === 3) {
-        return this.break1.move(side);
-      }
-    };
 
     World.prototype.gameover = function(side) {
       var msg;
@@ -956,60 +829,122 @@
       return 400;
     };
 
-    World.prototype.hover = function(pos) {};
-
-    World.prototype.select = function(pos) {
-      console.log("pos");
-    };
-
-    World.prototype.in_my_side = function(pos) {
-      var unit, _i, _len, _ref;
-      _ref = this.units;
-      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-        unit = _ref[_i];
-        if (unit.pos.x === pos.x && unit.pos.y === pos.y && unit.side === this.my_side && this.movable) {
-          return true;
-        }
-      }
-      return false;
+    World.prototype.shoot = function() {
+      var json_str, msg;
+      console.log("shoot!");
+      msg = {
+        Status: SHOOT
+      };
+      json_str = JSON.stringify(msg);
+      return this.reactor.send(json_str);
     };
 
     World.prototype.player1Press = function() {
-      var position;
-      position = this.arrow1.get_position();
-      return this.connector.shoot(position);
+      return this.shoot();
     };
 
-    World.prototype.syncPosition = function(pos) {
-      return this.connector.sync(pos);
+    World.prototype.handle_close_event = function() {
+      return this.bar.show_tip("你离线了", "danger");
     };
 
-    World.prototype.player2Press = function() {};
-
-    World.prototype.player1Shoot = function(pos) {
-      return this.arrow1.shoot(pos);
+    World.prototype.handle_event = function(data) {
+      var msg, side;
+      msg = JSON.parse(data);
+      if (msg.Status === ROOM_ISFULL) {
+        this.bar.show_tip("当前房间已满", "info");
+        return;
+      }
+      if (msg.Status === WAITING) {
+        this.bar.show_tip("已经连接服务器,正在匹配另一个玩家", "info");
+        return;
+      }
+      if (msg.Status === READY) {
+        this.bar.show_tip("已经匹配到对手, 3秒后开始, 请准备...", "info");
+        this.break1.reset();
+        this.break2.reset();
+        this.break3.reset();
+        return;
+      }
+      if (msg.Status === DISCONNECTED) {
+        this.bar.show_tip("对手离线了, 等待中...", "warning");
+        return;
+      }
+      if (msg.Status === WIN) {
+        this.bar.show_tip("Oyeah, 赢了", "success");
+        side = 0;
+        if (msg.Direction === "left_to_right") {
+          side = 0;
+        } else {
+          side = 1;
+        }
+        if (msg.WoodIndex === 1) {
+          this.break1.move(side);
+        }
+        if (msg.WoodIndex === 2) {
+          this.break2.move(side);
+        }
+        if (msg.WoodIndex === 3) {
+          this.break3.move(side);
+        }
+        return;
+      }
+      if (msg.Status === LOSE) {
+        this.bar.show_tip("Oooops, 输了", "danger");
+        side = 0;
+        if (msg.Direction === "left_to_right") {
+          side = 0;
+        } else {
+          side = 1;
+        }
+        if (msg.WoodIndex === 1) {
+          this.break1.move(side);
+        }
+        if (msg.WoodIndex === 2) {
+          this.break2.move(side);
+        }
+        if (msg.WoodIndex === 3) {
+          this.break3.move(side);
+        }
+        return;
+      }
+      if (msg.Status === BREAK_MOVED) {
+        this.bar.show_tip("专挑动了", "warning");
+        console.log(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
+        console.log(msg.Direction);
+        side = 0;
+        if (msg.Direction === "left_to_right") {
+          side = 0;
+        } else {
+          side = 1;
+        }
+        if (msg.WoodIndex === 1) {
+          this.break1.move(side);
+        }
+        if (msg.WoodIndex === 2) {
+          this.break2.move(side);
+        }
+        if (msg.WoodIndex === 3) {
+          this.break3.move(side);
+        }
+        return;
+      }
+      if (msg.Status === RUNNING) {
+        this.bar.show_tip("火暴PK中...", "info");
+      }
+      this.arrow1.set_position(msg.XPos, msg.YPos);
+      return this.arrow2.set_position(-msg.OtherXPos, msg.OtherYPos);
     };
 
-    World.prototype.player2Shoot = function(pos) {
-      return this.arrow2.shoot(pos);
-    };
-
-    World.prototype.player2Sync = function(pos) {
-      console.log("sync@@@@@@@@@@" + pos);
-      return this.arrow2.sync(pos);
-    };
-
-    World.prototype.start_game = function() {
-      this.arrow1.start();
-      return this.arrow2.start();
+    World.prototype.set_reactor = function(reactor) {
+      return this.reactor = reactor;
     };
 
     World.prototype.render = function() {
       this.canvas.clear();
       this.bg.render(this.canvas);
-      this["break"].render(this.canvas);
       this.break1.render(this.canvas);
       this.break2.render(this.canvas);
+      this.break3.render(this.canvas);
       this.arrow1.render(this.canvas);
       return this.arrow2.render(this.canvas);
     };

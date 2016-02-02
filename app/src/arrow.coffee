@@ -21,11 +21,10 @@ class Arrow
     @side = side
     @world = world
     @position = 0
+    @position_x = 0
     @v = V_MIDDLE
     @cycle = 0
     @offset = 0
-    @is_shooting = false
-    @is_shooting_back = false
     @protecting_section_index = 0
 
   get_offset: () ->
@@ -34,11 +33,15 @@ class Arrow
     if @side == SIDE_RIGHT
       return @offset+OFFSET
 
-  set_position: (position) ->
-    @position = position
+  set_position: (x, y) ->
+    ratio = @world.half_height()/1000.0
+    @origin_position = y
+    @position = y*ratio
+    ratio_x = OFFSET/2/1000.0
+    @offset = x*ratio_x
 
   get_position: () ->
-    return @position
+    return @origin_position
 
   get_direction: () ->
     v = Math.abs(@v)
@@ -51,50 +54,6 @@ class Arrow
     index = @world.attackable_index(this)
     if index != 0 and index == @protecting_section_index
       return
-    @is_shooting = true
-    #pos += 13*@v
-    #@set_position(pos)
-
-  sync: (pos) ->
-    @set_position(pos)
-
-
-  next_velocity: () ->
-    v = Math.abs(@v)
-    sign = @v/v
-    if v == V_MIDDLE
-      return sign*V_FAST
-    if v == V_FAST
-      return sign*V_SLOW
-    if v == V_SLOW
-      return sign*V_MIDDLE
-
-  is_hit: () ->
-    offset = 0
-    index = @world.attackable_index(this)
-    if index != 0
-      offset = @world.break_offset(index)
-    if @side == SIDE_RIGHT
-      offset = -offset
-    d = offset + @world.half_width() - 2*WIDTH - 150
-    if @side == SIDE_LEFT
-      return @offset >= d
-    if @side == SIDE_RIGHT
-      return @offset <= -d
-
-  shoot_forward: () ->
-    pos = @get_position()
-    @world.syncPosition(pos)
-
-    v = Math.abs(@v)
-    if @side == SIDE_RIGHT
-      v = -v
-    @offset += v
-    if @is_hit()
-      @is_shooting_back = true
-      index = @world.attackable_index(this)
-      if index != 0
-        offset = @world.move_break(index, @side)
 
   stop: () ->
     @halt = true
@@ -102,45 +61,7 @@ class Arrow
   start: () ->
     @halt = false
 
-  shoot_back: () ->
-    v = Math.abs(@v)
-    if @side == SIDE_LEFT
-      v = -v
-    @offset += v
-    if @offset <= 0 and @side == SIDE_LEFT or @offset >= 0 and @side == SIDE_RIGHT
-      @is_shooting_back = false
-      @is_shooting = false
-      @protecting_section_index = @world.attackable_index(this)
-
-  roaming: () ->
-    return if @halt
-    if @world.attackable_index(this) == 0
-      @protecting_section_index = 0
-    @position += @v
-    h = @world.half_height()
-    if @position >= h
-      @v = -@v
-    if @position <= -h
-      @v = -@v
-
-  on_velocity_change: () ->
-    @cycle += 1
-    if @cycle == CYCLE_COUNT
-      @v = @next_velocity()
-      @cycle = 0
-
-  run: () ->
-    if @is_shooting_back
-      @shoot_back()
-    else if @is_shooting
-      @shoot_forward()
-    else
-      @roaming()
-    @on_velocity_change()
-
-
   render: (canvas) ->
-    @run()
     offset = @get_offset()
     canvas.fillRect(COLOR_ARROW, {
       x:offset-WIDTH/2,
