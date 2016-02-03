@@ -143,7 +143,7 @@
   })();
 
   Border = (function() {
-    var COLOR_ATTACK, COLOR_BORDER, COLOR_LINE, HEIGHT, WIDTH;
+    var COLOR_ATTACK, COLOR_BORDER, COLOR_LINE, COLOR_ME, COLOR_OPPOENT, HEIGHT, WIDTH;
 
     WIDTH = 1600;
 
@@ -153,11 +153,17 @@
 
     COLOR_LINE = 'RGB(100, 0, 240)';
 
+    COLOR_ME = 'RGB(82, 183, 83)';
+
+    COLOR_OPPOENT = 'RGB(233, 20, 40)';
+
     COLOR_ATTACK = 'RGBA(264, 224, 126, 0.4)';
 
     function Border() {}
 
     Border.prototype.render = function(canvas) {
+      canvas.drawText(COLOR_ME, '50px play', '我方', -700, -300);
+      canvas.drawText(COLOR_OPPOENT, '50px play', '敌方', 700, -300);
       return canvas.drawRect(COLOR_BORDER, {
         x: -WIDTH / 2,
         y: -HEIGHT / 2,
