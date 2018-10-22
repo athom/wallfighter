@@ -1,6 +1,7 @@
 class Websocket
   WS_HOST = "ws://localhost:3000"
   WS_HOST = "ws://115.159.44.225:3000"
+  WS_HOST = "ws://119.28.1.61:3000"
   #WS_HOST = "ws://ec2-52-74-37-229.ap-southeast-1.compute.amazonaws.com:3000"
 
   constructor: (event_hadler) ->
