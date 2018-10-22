@@ -462,6 +462,8 @@
 
     WS_HOST = "ws://115.159.44.225:3000";
 
+    WS_HOST = "ws://119.28.1.61:3000";
+
     function Websocket(event_hadler) {
       this.set_slug_and_url();
       this.ws_conn = null;
